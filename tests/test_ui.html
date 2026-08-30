@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Pitch Explorer — UI tests</title>
+    <style>
+      body {
+        font:
+          14px/1.5 -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          Arial,
+          sans-serif;
+        margin: 0;
+        background: #f4f5f8;
+        color: #1f2233;
+      }
+      header {
+        background: #3b3b8f;
+        color: #fff;
+        padding: 12px 18px;
+        font-weight: 700;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      #summary {
+        font-weight: 600;
+      }
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 16px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        background: #fff;
+        border: 1px solid #e3e5ee;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      th,
+      td {
+        padding: 7px 10px;
+        border-bottom: 1px solid #eef0f5;
+        text-align: left;
+        vertical-align: top;
+        font-size: 13px;
+      }
+      th {
+        background: #f3f4f7;
+      }
+      td.k {
+        white-space: nowrap;
+        font-weight: 600;
+      }
+      tr.ok td.k {
+        color: #0f6e56;
+      }
+      tr.xx td.k {
+        color: #b00020;
+      }
+      td.detail {
+        color: #5a5f73;
+        font-family: Consolas, monospace;
+        font-size: 12px;
+      }
+      .pill {
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .pill.ok {
+        background: #e1f5ee;
+        color: #0f6e56;
+      }
+      .pill.xx {
+        background: #fcebeb;
+        color: #b00020;
+      }
+      #frame {
+        width: 1040px;
+        height: 900px;
+        border: 1px solid #ccc;
+        background: #fff;
+        margin-top: 16px;
+      }
+      .note {
+        color: #5a5f73;
+        margin: 8px 0;
+      }
+      .err {
+        color: #b00020;
+        padding: 14px;
+        background: #fff;
+        border: 1px solid #f0c1c1;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <span>Pitch Explorer · UI tests</span>
+      <span id="summary">running…</span>
+    </header>
+    <main>
+      <p class="note">
+        Drives the built <code>../pitch_explorer.html</code> in the frame below
+        and checks the DOM behaviour. Expected statistics are read from
+        <code>../pitch_explorer_reference.json</code>, so nothing is typed by
+        hand. <b>Serve the folder</b> (<code>python -m http.server</code>) and
+        open this over http — a browser blocks a <code>file://</code> page from
+        reading a framed <code>file://</code> document.
+      </p>
+      <div id="report"></div>
+      <iframe id="frame" src="../pitch_explorer.html"></iframe>
+    </main>
+
+    <script>
+      "use strict";
+      const results = [];
+      function record(name, ok, detail) {
+        results.push({ name, ok, detail: detail || "" });
+      }
+      const approx = (a, b, tol) =>
+        isFinite(a) &&
+        isFinite(b) &&
+        Math.abs(a - b) <= (tol == null ? 0.02 : tol);
+      const num = (s) => {
+        const m = String(s)
+          .replace("−", "-")
+          .match(/-?\d+(\.\d+)?/);
+        return m ? parseFloat(m[0]) : NaN;
+      };
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      // Yield the event loop between UI actions. Uses setTimeout, not
+      // requestAnimationFrame, so it still fires when this runner is a background tab
+      // (rAF is paused in background tabs and would hang the whole run).
+      const raf = () => sleep(20);
+
+      function fail(msg) {
+        throw new Error(msg);
+      }
+
+      // ---- assertion helpers bound to the framed document ----
+      let DOC, WIN, REF;
+      const $ = (sel) => DOC.querySelector(sel);
+      const $$ = (sel) => Array.from(DOC.querySelectorAll(sel));
+      function stats() {
+        return $$(".stats .s b").map((b) => b.textContent);
+      }
+      function statCI() {
+        const sp = $$(".stats .s span").find((x) =>
+          /95% CI/.test(x.textContent),
+        );
+        return sp ? sp.textContent : "";
+      }
+      function title() {
+        return ($(".panel-title") || {}).textContent || "";
+      }
+      function caption() {
+        return ($(".caption") || {}).textContent || "";
+      }
+      function counter() {
+        return ($(".sidehead .cnt") || {}).textContent || "";
+      }
+      function master() {
+        return $(".sidehead input[type=checkbox]");
+      }
+      function genderBtns() {
+        return $$(".toolbar .pill button");
+      } // [All, Female, Male]
+      function winInputs(grp) {
+        return Array.from(
+          $$(".winbar .grp")[grp].querySelectorAll("input[type=number]"),
+        );
+      }
+      async function setInput(inp, v) {
+        inp.value = v;
+        inp.dispatchEvent(new WIN.Event("change"));
+        await raf();
+      }
+      async function click(el) {
+        el.click();
+        await raf();
+      }
+      function partRows() {
+        return $$(".plist .prow");
+      }
+      function partBoxes() {
+        return $$(".plist .prow input[type=checkbox]");
+      }
+
+      // window controls layout: grp0 baseline, grp1 analysis, grp2 presets, then extras.
+      async function setAnalysis(a, b) {
+        const i = winInputs(1);
+        await setInput(i[0], a);
+        await setInput(i[1], b);
+      }
+      async function setBaseline(a, b) {
+        const i = winInputs(0);
+        await setInput(i[0], a);
+        await setInput(i[1], b);
+      }
+      async function applyWindows(w) {
+        await setBaseline(w.baseline.startMs, w.baseline.endMs);
+        await setAnalysis(w.analysis.startMs, w.analysis.endMs);
+      }
+      function analysisInputs() {
+        return winInputs(1);
+      }
+      function groupDir() {
+        return (
+          $$(".winbar select").find((s) =>
+            /Signed|only/.test(s.options[0].textContent + s.textContent),
+          ) || $(".winbar select")
+        );
+      }
+      function ccBox() {
+        return $(".winbar .chk input[type=checkbox]");
+      }
+      async function setSelect(sel, v) {
+        sel.value = v;
+        sel.dispatchEvent(new WIN.Event("change"));
+        await raf();
+      }
+      async function setCheck(box, v) {
+        if (box.checked !== v) {
+          box.checked = v;
+          box.dispatchEvent(new WIN.Event("change"));
+          await raf();
+        }
+      }
+      function windowNoteText() {
+        return ($(".winnote") || {}).textContent || "";
+      }
+
+      // compare one window-test readout against a reference row.
+      // Parse the value after "=" in "t(27) = 7.61" (not the df), and the two
+      // numbers inside the brackets of "95% CI [6.88, 11.96] cents".
+      function checkStatsAgainst(label, ref) {
+        const s = stats();
+        const md = num(s[0]);
+        const t = num(String(s[1]).split("=").pop());
+        const dz = num(String(s[3]).split("=").pop());
+        const ciIn = (statCI().match(/\[([^\]]+)\]/) || [, ""])[1].replace(
+          /−/g,
+          "-",
+        );
+        const cim = (ciIn.match(/-?\d+(\.\d+)?/g) || []).map(parseFloat);
+        const okMd = approx(md, ref.meanDiff_c),
+          okT = approx(t, ref.t),
+          okDz = approx(dz, ref.dz);
+        const okCi =
+          cim.length >= 2 &&
+          approx(cim[0], ref.ci_c[0]) &&
+          approx(cim[1], ref.ci_c[1]);
+        const detail = `mean ${md} (exp ${ref.meanDiff_c}), t ${t} (exp ${ref.t}), dz ${dz} (exp ${ref.dz}), CI [${cim.slice(0, 2)}] (exp [${ref.ci_c}])`;
+        record(label, okMd && okT && okDz && okCi, detail);
+      }
+
+      // same comparison, scoped to one card (compare mode has two .stats panels).
+      function checkCardStats(card, label, ref) {
+        const s = Array.from(card.querySelectorAll(".stats .s b")).map(
+          (b) => b.textContent,
+        );
+        const ciSpan = Array.from(card.querySelectorAll(".stats .s span")).find(
+          (x) => /95% CI/.test(x.textContent),
+        );
+        const md = num(s[0]);
+        const t = num(String(s[1]).split("=").pop());
+        const dz = num(String(s[3]).split("=").pop());
+        const ciIn = ((ciSpan ? ciSpan.textContent : "").match(
+          /\[([^\]]+)\]/,
+        ) || [, ""])[1].replace(/−/g, "-");
+        const cim = (ciIn.match(/-?\d+(\.\d+)?/g) || []).map(parseFloat);
+        const ok =
+          approx(md, ref.meanDiff_c) &&
+          approx(t, ref.t) &&
+          approx(dz, ref.dz) &&
+          cim.length >= 2 &&
+          approx(cim[0], ref.ci_c[0]) &&
+          approx(cim[1], ref.ci_c[1]);
+        record(
+          label,
+          ok,
+          `mean ${md} (exp ${ref.meanDiff_c}), t ${t} (exp ${ref.t})`,
+        );
+      }
+
+      async function waitForBoot() {
+        const t0 = Date.now();
+        while (Date.now() - t0 < 20000) {
+          try {
+            DOC = document.getElementById("frame").contentDocument;
+            WIN = document.getElementById("frame").contentWindow;
+            if (
+              DOC &&
+              DOC.querySelector(".plist .prow") &&
+              DOC.querySelector("#nav-group")
+            )
+              return true;
+          } catch (e) {
+            throw new Error(
+              "cross-origin: serve the folder over http and open this page over http (not file://).",
+            );
+          }
+          await sleep(150);
+        }
+        throw new Error(
+          "the tool did not finish booting in the frame within 20 s.",
+        );
+      }
+
+      async function run() {
+        try {
+          await waitForBoot();
+          REF = await (await fetch("../pitch_explorer_reference.json")).json();
+        } catch (e) {
+          document.getElementById("report").innerHTML =
+            `<div class="err"><b>Could not start the UI tests.</b><br>${e.message}</div>`;
+          document.getElementById("summary").textContent = "could not run";
+          window.__uiResults = { error: e.message };
+          window.__uiDone = true;
+          return;
+        }
+
+        const WT = REF.windowTest;
+
+        // ===================== GROUP AVERAGE VIEW =====================
+        await click($("#nav-group"));
+
+        record(
+          "boot: title reports N, split and trials",
+          /28 participants/.test(title()) &&
+            /16 female, 12 male/.test(title()) &&
+            /6035 trials/.test(title()) &&
+            /SWIPE/.test(title()),
+          title(),
+        );
+
+        record(
+          "boot: both charts drawn (canvas width > 0)",
+          $$("canvas.chart").length >= 2 &&
+            $$("canvas.chart").every((c) => c.width > 0),
+          `${$$("canvas.chart").length} canvases`,
+        );
+
+        record(
+          "boot: legend names conditions and both windows",
+          /control/.test($(".legend").textContent) &&
+            /baseline window/.test($(".legend").textContent) &&
+            /analysis window/.test($(".legend").textContent),
+          "",
+        );
+
+        record(
+          "selection: master checked, counter 28 of 28",
+          master().checked &&
+            !master().indeterminate &&
+            /28 of 28 selected/.test(counter()),
+          counter(),
+        );
+
+        checkStatsAgainst(
+          "default window: signed + control-corrected == reference",
+          WT.signed_ctrlCorrected,
+        );
+
+        record(
+          "windows: defaults are baseline -200..0, analysis 100..250",
+          winInputs(0)
+            .map((i) => i.value)
+            .join(",") === "-200,0" &&
+            analysisInputs()
+              .map((i) => i.value)
+              .join(",") === "100,250",
+          `baseline ${winInputs(0).map((i) => i.value)}, analysis ${analysisInputs().map((i) => i.value)}`,
+        );
+
+        record(
+          "windows: note text mirrors the current window numbers",
+          /-200 to 0 ms/.test(windowNoteText()) &&
+            /100 to 250 ms/.test(windowNoteText()),
+          windowNoteText().slice(0, 70),
+        );
+
+        // raising analysis start above the end pushes the end, never silently swaps
+        await setInput(analysisInputs()[0], 300);
+        record(
+          "windows: start above end pushes end (no silent swap)",
+          analysisInputs()[0].value === "300" &&
+            analysisInputs()[1].value === "300",
+          `start ${analysisInputs()[0].value}, end ${analysisInputs()[1].value}`,
+        );
+        await setInput(analysisInputs()[1], 99999);
+        record(
+          "windows: end clamps to epoch max (1000)",
+          analysisInputs()[1].value === "1000",
+          analysisInputs()[1].value,
+        );
+        await setInput(analysisInputs()[0], -99999);
+        record(
+          "windows: start clamps to epoch min (-500)",
+          analysisInputs()[0].value === "-500",
+          analysisInputs()[0].value,
+        );
+
+        // preset restores the Miller window and the default numbers
+        const miller = $$(".winbar .pill button").find((b) =>
+          /Miller|100/.test(b.textContent),
+        );
+        await click(miller);
+        record(
+          "windows: Miller preset restores 100..250 and default stats",
+          analysisInputs()
+            .map((i) => i.value)
+            .join(",") === "100,250" &&
+            approx(num(stats()[0]), WT.signed_ctrlCorrected.meanDiff_c),
+          `analysis ${analysisInputs().map((i) => i.value)}, mean ${stats()[0]}`,
+        );
+
+        // alternate windows: baseline and analysis boxes recompute correctly (browser
+        // vs the Python reference), while state is still signed + control-corrected.
+        const ALT = REF.windowTestAlt;
+        const defaultMean = num(stats()[0]);
+        await applyWindows(ALT.baselineShift); // post-onset baseline -> result flips well away from +9.42
+        checkStatsAgainst(
+          "alt window: post-onset baseline recomputes (== reference)",
+          ALT.baselineShift,
+        );
+        record(
+          "alt window: moving the baseline actually changes the result",
+          !approx(num(stats()[0]), defaultMean, 0.5),
+          `default ${defaultMean} -> ${stats()[0]}`,
+        );
+        await applyWindows(ALT.analysisCustom); // custom analysis window 300..500
+        checkStatsAgainst(
+          "alt window: custom analysis window recomputes (== reference)",
+          ALT.analysisCustom,
+        );
+        await applyWindows(ALT.peakPreset); // 50..500 (matches the peak preset)
+        checkStatsAgainst(
+          "alt window: 50..500 window recomputes (== reference)",
+          ALT.peakPreset,
+        );
+        // the peak preset button fills exactly this analysis window
+        await setBaseline(-200, 0);
+        const peakBtn = $$(".winbar .pill button").find((b) =>
+          /peak/i.test(b.textContent),
+        );
+        if (peakBtn) {
+          await click(peakBtn);
+          record(
+            "windows: peak preset fills the 50..500 analysis window",
+            analysisInputs()
+              .map((i) => i.value)
+              .join(",") === "50,500",
+            `analysis ${analysisInputs().map((i) => i.value)}`,
+          );
+        }
+        // restore defaults for the tests that follow
+        await setBaseline(-200, 0);
+        await click(miller);
+
+        // directions x control correction, each against its reference row
+        await setSelect(groupDir(), "down");
+        await setCheck(ccBox(), true);
+        checkStatsAgainst(
+          "direction down + control-corrected == reference",
+          WT.down_ctrlCorrected,
+        );
+        await setCheck(ccBox(), false);
+        checkStatsAgainst("direction down + raw == reference", WT.down_raw);
+        await setSelect(groupDir(), "up");
+        await setCheck(ccBox(), true);
+        checkStatsAgainst(
+          "direction up + control-corrected == reference",
+          WT.up_ctrlCorrected,
+        );
+        await setCheck(ccBox(), false);
+        checkStatsAgainst("direction up + raw == reference", WT.up_raw);
+
+        // signed: control correction cancels exactly
+        await setSelect(groupDir(), "signed");
+        await setCheck(ccBox(), true);
+        const signedOn = num(stats()[0]);
+        const noteHasCancel = /cancel/i.test(windowNoteText());
+        await setCheck(ccBox(), false);
+        const signedOff = num(stats()[0]);
+        record(
+          "signed: control correction leaves the numbers unchanged",
+          approx(signedOn, signedOff) &&
+            approx(signedOn, WT.signed_ctrlCorrected.meanDiff_c),
+          `on ${signedOn}, off ${signedOff}`,
+        );
+        record("signed: the note explains the cancellation", noteHasCancel, "");
+        await setCheck(ccBox(), true);
+
+        // the Direction control drives the top plot: switching it changes the legend and caption
+        await setSelect(groupDir(), "both");
+        const bothCap = caption(),
+          bothLeg = ($(".legend") || {}).textContent || "";
+        await setSelect(groupDir(), "signed");
+        const sgnCap = caption(),
+          sgnLeg = ($(".legend") || {}).textContent || "";
+        record(
+          "direction: switching updates the top plot (legend + caption)",
+          bothCap !== sgnCap &&
+            bothLeg !== sgnLeg &&
+            /pooled/i.test(sgnCap) &&
+            /signed-combined compensation/.test(sgnLeg) &&
+            !/signed-combined compensation/.test(bothLeg) &&
+            /downward and upward/i.test(bothCap),
+          `both="${bothCap.slice(0, 28)}" signed="${sgnCap.slice(0, 28)}"`,
+        );
+
+        // ---- selection model ----
+        const [bAll, bFemale, bMale] = genderBtns();
+        await click(bFemale);
+        const fTitle = title(),
+          fTrials = num((fTitle.match(/· (\d+) trials/) || [])[1]);
+        record(
+          "shortcut: Female ticks 16, counter and title follow",
+          /16 of 28 selected/.test(counter()) &&
+            /16 participants \(16 female\)/.test(fTitle) &&
+            bFemale.classList.contains("active"),
+          `${counter()} | ${fTitle}`,
+        );
+        await click(bMale);
+        const mTitle = title(),
+          mTrials = num((mTitle.match(/· (\d+) trials/) || [])[1]);
+        record(
+          "shortcut: Male ticks 12, counter and title follow",
+          /12 of 28 selected/.test(counter()) &&
+            /12 participants \(12 male\)/.test(mTitle) &&
+            bMale.classList.contains("active"),
+          `${counter()} | ${mTitle}`,
+        );
+        record(
+          "consistency: female trials + male trials == 6035",
+          fTrials + mTrials === 6035,
+          `${fTrials} + ${mTrials} = ${fTrials + mTrials}`,
+        );
+
+        await click(bAll);
+        record(
+          "shortcut: All restores 28 and the default stat",
+          /28 of 28 selected/.test(counter()) &&
+            approx(num(stats()[0]), WT.signed_ctrlCorrected.meanDiff_c),
+          counter(),
+        );
+
+        // untick one participant -> custom subset
+        const firstBox = partBoxes()[0];
+        await setCheck(firstBox, false);
+        record(
+          "selection: unticking one drops to 27 and moves the group average",
+          /27 of 28 selected/.test(counter()) &&
+            /27 participants/.test(title()) &&
+            master().indeterminate &&
+            !genderBtns().some((b) => b.classList.contains("active")),
+          `${counter()} | indeterminate ${master().indeterminate}`,
+        );
+        await setCheck(firstBox, true);
+        record(
+          "selection: re-ticking restores 28 and lights All",
+          /28 of 28 selected/.test(counter()) &&
+            master().checked &&
+            !master().indeterminate &&
+            genderBtns()[0].classList.contains("active") &&
+            approx(num(stats()[0]), WT.signed_ctrlCorrected.meanDiff_c),
+          counter(),
+        );
+
+        // master checkbox clears / restores everyone
+        await setCheck(master(), false);
+        record(
+          "master: unchecking clears to 0 and blanks the stats",
+          /0 of 28 selected/.test(counter()) &&
+            /0 participants/.test(title()) &&
+            stats().every((v) => v === "—"),
+          `${counter()} | stats ${stats().join(" ")}`,
+        );
+        await setCheck(master(), true);
+        record(
+          "master: re-checking restores 28 and the default stat",
+          /28 of 28 selected/.test(counter()) &&
+            approx(num(stats()[0]), WT.signed_ctrlCorrected.meanDiff_c),
+          counter(),
+        );
+
+        // a hand-picked subset is replaced by a shortcut
+        await setCheck(master(), false);
+        const oneFemaleIdx = partRows().findIndex((r) =>
+          /female/.test(r.textContent),
+        );
+        await setCheck(partBoxes()[oneFemaleIdx], true);
+        await click(bFemale);
+        record(
+          "shortcut replaces a hand-picked subset with exactly its group",
+          /16 of 28 selected/.test(counter()) &&
+            bFemale.classList.contains("active"),
+          counter(),
+        );
+        await click(bAll);
+
+        // exclusions never appear
+        const pids = $$(".plist .prow .pid").map((e) => e.textContent);
+        record(
+          "exclusions: P002 / P004 / P031 appear nowhere; 28 rows shown",
+          pids.length === 28 &&
+            !["P002", "P004", "P031"].some((x) => pids.includes(x)),
+          `${pids.length} rows`,
+        );
+
+        // group CSV names the selection and has 751 data rows
+        const grpCsv = await captureDownload(() =>
+          $$(".btns button")
+            .find((b) => /CSV/.test(b.textContent))
+            .click(),
+        );
+        record(
+          "export: group CSV header, 751 rows, filename names selection",
+          grpCsv.name === "group_average_all.csv" &&
+            grpCsv.rows[0] ===
+              "time_ms,control_mean,control_sem,neg100_mean,neg100_sem,pos100_mean,pos100_sem" &&
+            grpCsv.rows.length - 1 === 751,
+          `${grpCsv.name}, ${grpCsv.rows.length - 1} rows`,
+        );
+        // the exported numbers are the real curve: each condition column's peak (in the
+        // 50..500 ms peak window) equals the validated grand-average peak.
+        const peakInCol = (rows, col, lo, hi) => {
+          let best = 0,
+            bestAbs = -1;
+          for (let i = 1; i < rows.length; i++) {
+            const c = rows[i].split(",");
+            const tm = +c[0],
+              v = +c[col];
+            if (tm >= lo && tm <= hi && isFinite(v) && Math.abs(v) > bestAbs) {
+              bestAbs = Math.abs(v);
+              best = v;
+            }
+          }
+          return best;
+        };
+        const csvNegPeak = peakInCol(grpCsv.rows, 3, 50, 500); // neg100_mean column
+        const csvPosPeak = peakInCol(grpCsv.rows, 5, 50, 500); // pos100_mean column
+        record(
+          "export: group CSV values equal the validated grand average",
+          approx(csvNegPeak, REF.all.neg100_peak_c, 0.05) &&
+            approx(csvPosPeak, REF.all.pos100_peak_c, 0.05),
+          `neg peak ${csvNegPeak.toFixed(2)} (exp ${REF.all.neg100_peak_c}), pos peak ${csvPosPeak.toFixed(2)} (exp ${REF.all.pos100_peak_c})`,
+        );
+
+        const grpPng = await captureBlob(() =>
+          $$(".btns button")
+            .find((b) => /PNG/.test(b.textContent))
+            .click(),
+        );
+        record(
+          "export: group PNG is a non-trivial image/png blob",
+          grpPng && grpPng.type === "image/png" && grpPng.size > 5000,
+          grpPng ? `${grpPng.size} bytes` : "no blob",
+        );
+
+        // ===================== EXPLORE VIEW =====================
+        await click($("#nav-explore"));
+        await raf();
+        record(
+          "explore: caption reports 28 participants at the -100 c shift",
+          /28 participant/.test(caption()) &&
+            /-100 c/.test(caption().replace(/−/g, "-")),
+          caption().slice(0, 80),
+        );
+
+        // the All / Female / Male shortcut also works inside an Explore panel
+        const expFemale = $$(".card .pill button").find(
+          (b) => b.textContent.trim() === "Female",
+        );
+        const expAll = $$(".card .pill button").find(
+          (b) => b.textContent.trim() === "All",
+        );
+        await click(expFemale);
+        record(
+          "explore: Female shortcut selects 16 and the caption follows",
+          /16 of 28 selected/.test(counter()) &&
+            /16 participant/.test(caption()),
+          `${counter()} · ${caption().slice(0, 55)}`,
+        );
+        await click(expAll); // restore all 28 for the checks below
+
+        // explore -100, participant unit == group down/raw
+        checkStatsAgainst(
+          "explore -100 (participant unit) == group down/raw reference",
+          WT.down_raw,
+        );
+
+        // trial unit inflates df; participant unit restores it
+        const unitSel = $$(".winbar select").find((s) =>
+          /Participant|Trial/.test(s.options[0].textContent),
+        );
+        const dfParticipant = num((stats()[1].match(/\((\d+)\)/) || [])[1]);
+        await setSelect(unitSel, "trial");
+        const dfTrial = num((stats()[1].match(/\((\d+)\)/) || [])[1]);
+        record(
+          "explore: trial unit inflates the degrees of freedom",
+          dfParticipant === 27 && dfTrial > 1000,
+          `participant df ${dfParticipant}, trial df ${dfTrial}`,
+        );
+        await setSelect(unitSel, "participant");
+        record(
+          "explore: switching back to participant restores df = 27",
+          num((stats()[1].match(/\((\d+)\)/) || [])[1]) === 27,
+          stats()[1],
+        );
+
+        // thumbnails: excluding one trial moves the mean, re-including restores it
+        await click($(".plist .prow .exp")); // expand P001 (panel is at -100 c)
+        const thumbsNeg = $$(".thumb").length; // P001 has 75 -100 c trials
+        // the row now reports the CURRENT shift's trial count, not the 216 total
+        const metaNeg = $(".plist .prow .meta").textContent;
+        record(
+          "explore: participant row reports the current shift's trial count (not the 216 total)",
+          /75 trials \([−-]100 c shift\)/.test(metaNeg) && !/216/.test(metaNeg),
+          `row meta: "${metaNeg.trim()}"`,
+        );
+        const beforeEx = num(stats()[0]);
+        await click($$(".thumb")[0]);
+        const afterEx = num(stats()[0]);
+        await click($$(".thumb")[0]);
+        const restored = num(stats()[0]);
+        record(
+          "explore: excluding a trial moves the mean, re-including restores it",
+          thumbsNeg === 75 &&
+            !approx(beforeEx, afterEx, 0.001) &&
+            approx(beforeEx, restored, 0.001),
+          `${thumbsNeg} thumbs (-100 c) · ${beforeEx} -> ${afterEx} -> ${restored}`,
+        );
+
+        // An open thumbnail box follows a shift change to the new shift.
+        // P001 has 75 trials at -100 c but 76 at +100 c; before the fix the open box
+        // stayed at 75.
+        const plusBtn = $$(".pill button").find((b) =>
+          /\+100/.test(b.textContent),
+        );
+        await click(plusBtn);
+        const thumbsPos = $$(".thumb").length;
+        record(
+          "explore: an open thumbnail box follows the shift (-100 -> +100)",
+          thumbsPos === 76 && thumbsPos !== thumbsNeg,
+          `-100 c shows ${thumbsNeg} thumbs, +100 c shows ${thumbsPos}`,
+        );
+        record(
+          "explore: +100 caption follows the shift",
+          /\+100 c/.test(caption()),
+          caption().slice(0, 80),
+        );
+        checkStatsAgainst(
+          "explore +100 (participant unit) == group up/raw reference",
+          WT.up_raw,
+        );
+
+        // A per-participant master toggles every shown trial in or out.
+        const capPerturbed = () =>
+          num((caption().match(/(\d+)\s+perturbed/) || [])[1]);
+        const capFull = capPerturbed();
+        const rowMeta = () => $(".plist .prow .meta").textContent;
+        const boxHead = () => $(".thumbs .th-h").textContent; // count spans the header's children
+        const rowCb = () => $(".plist .prow input[type=checkbox]"); // the level-2 checkbox
+        const thAll = $(".thumbs .th-all");
+        await click(thAll); // exclude all of P001's +100 c trials
+        const capMinus = capPerturbed();
+        record(
+          "explore: participant trial select-all excludes every shown trial",
+          $$(".thumb").every((t) => t.classList.contains("excluded")) &&
+            capFull - capMinus === thumbsPos,
+          `perturbed ${capFull} -> ${capMinus} (dropped ${capFull - capMinus} = P001's +100 c trials)`,
+        );
+        // the checked-in count is now visible on both the row and the box header
+        record(
+          "explore: excluding all shows the checked-in count (0 of 76) on the row and box header",
+          /0 of 76 trials \(\+100 c shift\)/.test(rowMeta()) &&
+            /0 of 76 trials \(\+100 c shift\)/.test(boxHead()),
+          `row "${rowMeta().trim()}" · header "${boxHead()}"`,
+        );
+        // level-2 checkbox shows a dash while the participant is in but trimmed
+        record(
+          "explore: level-2 checkbox is a dash (indeterminate) when trials are trimmed",
+          rowCb().indeterminate && !rowCb().checked,
+          `checked=${rowCb().checked} indet=${rowCb().indeterminate}`,
+        );
+        await click(thAll); // include them all again
+        record(
+          "explore: participant trial select-all restores every shown trial",
+          $$(".thumb").every((t) => !t.classList.contains("excluded")) &&
+            capPerturbed() === capFull &&
+            $(".thumbs .th-all").checked,
+          `perturbed back to ${capPerturbed()}, master checked ${$(".thumbs .th-all").checked}`,
+        );
+        record(
+          "explore: level-2 checkbox is a checkmark when every trial is in",
+          rowCb().checked && !rowCb().indeterminate,
+          `checked=${rowCb().checked} indet=${rowCb().indeterminate}`,
+        );
+        record(
+          "explore: including all shows the full count (76) on the row, no 'of'",
+          /\b76 trials \(\+100 c shift\)/.test(rowMeta()) &&
+            !/of/.test(rowMeta()),
+          `row "${rowMeta().trim()}"`,
+        );
+        // excluding a single trial shows N-1 of N and a tinted pill
+        await click($$(".thumb")[0]);
+        record(
+          "explore: excluding one trial shows 75 of 76 on the row",
+          /75 of 76 trials \(\+100 c shift\)/.test(rowMeta()),
+          `row "${rowMeta().trim()}"`,
+        );
+        record(
+          "explore: the trial count is a pill, tinted (part) when the selection is partial",
+          !!$(".plist .prow .meta .tpill") &&
+            $(".plist .prow .meta .tpill").classList.contains("part"),
+          `class="${($(".plist .prow .meta .tpill") || {}).className}"`,
+        );
+        await click($$(".thumb")[0]); // restore
+        record(
+          "explore: the pill loses the tint when all trials are back in",
+          !$(".plist .prow .meta .tpill").classList.contains("part"),
+          `class="${$(".plist .prow .meta .tpill").className}"`,
+        );
+
+        // clicking the level-2 checkbox toggles the whole participant out / in
+        const capBeforeToggle = capPerturbed();
+        await click(rowCb()); // deselect P001 entirely
+        record(
+          "explore: clicking a selected level-2 checkbox removes the participant",
+          !rowCb().checked &&
+            !rowCb().indeterminate &&
+            $(".plist .prow").classList.contains("off") &&
+            capBeforeToggle - capPerturbed() === thumbsPos,
+          `row off=${$(".plist .prow").classList.contains("off")}, perturbed ${capBeforeToggle} -> ${capPerturbed()}`,
+        );
+        await click(rowCb()); // re-select P001
+        record(
+          "explore: clicking again restores the participant to a full checkmark",
+          rowCb().checked &&
+            !rowCb().indeterminate &&
+            !$(".plist .prow").classList.contains("off") &&
+            capPerturbed() === capBeforeToggle,
+          `row on, perturbed back to ${capPerturbed()}`,
+        );
+
+        // dormant trim: a trimmed selection survives a participant deselect/reselect
+        await click($$(".thumb")[0]);
+        await click($$(".thumb")[1]); // trim 2 -> "74 of 76", dash
+        record(
+          "explore: trimming two trials shows 74 of 76 and a dash",
+          /74 of 76 trials \(\+100 c shift\)/.test(rowMeta()) &&
+            rowCb().indeterminate,
+          `row "${rowMeta().trim()}", indet=${rowCb().indeterminate}`,
+        );
+        await click(rowCb()); // deselect participant (trim kept dormant)
+        await click(rowCb()); // reselect
+        record(
+          "explore: deselect/reselect restores the dormant trim (still 74 of 76, dash)",
+          /74 of 76 trials \(\+100 c shift\)/.test(rowMeta()) &&
+            rowCb().indeterminate &&
+            !rowCb().checked,
+          `row "${rowMeta().trim()}", indet=${rowCb().indeterminate}`,
+        );
+        await click($$(".thumb")[0]);
+        await click($$(".thumb")[1]); // restore both -> full checkmark
+        record(
+          "explore: re-including the trims returns to a full checkmark",
+          rowCb().checked &&
+            !rowCb().indeterminate &&
+            /\b76 trials \(\+100 c shift\)/.test(rowMeta()),
+          `row "${rowMeta().trim()}"`,
+        );
+
+        // explore CSV
+        const expCsv = await captureDownload(() =>
+          $$(".btns button")
+            .find((b) => /CSV/.test(b.textContent))
+            .click(),
+        );
+        record(
+          "export: explore CSV header and 751 rows",
+          expCsv.rows[0] === "time_ms,mean_cents,sem_cents" &&
+            expCsv.rows.length - 1 === 751 &&
+            /_all\.csv$/.test(expCsv.name),
+          `${expCsv.name}, ${expCsv.rows.length - 1} rows`,
+        );
+        // the exported explore curve matches what the panel shows: the peak in the
+        // analysis window equals the displayed "peak in analysis window" stat.
+        const expDispPeak = num(stats().slice(-1)[0]);
+        const expCsvPeak = peakInCol(expCsv.rows, 1, 100, 250); // mean_cents column, default analysis window
+        record(
+          "export: explore CSV values match the displayed curve (peak in window)",
+          approx(expCsvPeak, expDispPeak, 0.06),
+          `CSV peak ${expCsvPeak.toFixed(2)} vs displayed ${expDispPeak}`,
+        );
+
+        // compare mode: two panels, each computed independently against its reference
+        await click($$(".seg button")[1]);
+        await raf();
+        const cards = $$(".card");
+        // set panel A to -100 and panel B to +100 (single-view tests left A on +100)
+        const shiftBtn = (card, label) =>
+          Array.from(card.querySelectorAll(".pill button")).find(
+            (b) => b.textContent.trim() === label,
+          );
+        await click(shiftBtn(cards[0], "−100 c"));
+        await click(shiftBtn(cards[1], "+100 c"));
+        record(
+          "explore compare: both panels drawn",
+          cards.length >= 2 &&
+            [cards[0], cards[1]].every(
+              (c) => c.querySelector("canvas.chart").width > 0,
+            ),
+          `${cards.length} cards`,
+        );
+        checkCardStats(
+          cards[0],
+          "explore compare: panel A (-100) == group down/raw reference",
+          WT.down_raw,
+        );
+        checkCardStats(
+          cards[1],
+          "explore compare: panel B (+100) == group up/raw reference",
+          WT.up_raw,
+        );
+        // and the two panels are independent: change A's analysis window, B must not move
+        const stA = () =>
+          Array.from(cards[0].querySelectorAll(".stats .s b"))
+            .map((b) => b.textContent)
+            .join("|");
+        const stB = () =>
+          Array.from(cards[1].querySelectorAll(".stats .s b"))
+            .map((b) => b.textContent)
+            .join("|");
+        const bBefore = stB(),
+          aBefore = stA();
+        const aAna = Array.from(
+          cards[0]
+            .querySelectorAll(".winbar .grp")[1]
+            .querySelectorAll("input[type=number]"),
+        );
+        await setInput(aAna[0], 300);
+        await setInput(aAna[1], 500);
+        record(
+          "explore: compare panels are independent",
+          cards.length >= 2 && stB() === bBefore && stA() !== aBefore,
+          `A changed ${stA() !== aBefore}, B unchanged ${stB() === bBefore}`,
+        );
+
+        renderReport();
+      }
+
+      // ---- capture a download the app triggers, without leaving the page ----
+      // canvas.toBlob is async, so poll for the blob before restoring the patches;
+      // otherwise a late callback leaks into the next capture (the stale-name bug).
+      async function captureDownload(trigger) {
+        const blob = await captureBlob(trigger);
+        const text = blob ? await blob.text() : "";
+        return { name: captureBlob._lastName, rows: text.trim().split("\n") };
+      }
+      async function captureBlob(trigger) {
+        let blob = null,
+          name = null;
+        const oCreate = WIN.URL.createObjectURL;
+        const oClick = WIN.HTMLAnchorElement.prototype.click;
+        WIN.URL.createObjectURL = (b) => {
+          blob = b;
+          return "blob:stub";
+        };
+        WIN.HTMLAnchorElement.prototype.click = function () {
+          name = this.download;
+        };
+        try {
+          trigger();
+          const t0 = Date.now();
+          while (!blob && Date.now() - t0 < 2500) await sleep(50);
+        } finally {
+          WIN.URL.createObjectURL = oCreate;
+          WIN.HTMLAnchorElement.prototype.click = oClick;
+        }
+        captureBlob._lastName = name;
+        return blob;
+      }
+
+      function renderReport() {
+        const pass = results.filter((r) => r.ok).length,
+          total = results.length;
+        window.__uiResults = { pass, fail: total - pass, total, results };
+        window.__uiDone = true;
+        document.getElementById("summary").textContent =
+          `${pass} / ${total} passed` + (pass === total ? "  ✓" : "  ✗");
+        document.getElementById("summary").style.color =
+          pass === total ? "#9fe1cb" : "#f7c1c1";
+        const rows = results
+          .map(
+            (r, i) =>
+              `<tr class="${r.ok ? "ok" : "xx"}"><td>${i + 1}</td><td><span class="pill ${r.ok ? "ok" : "xx"}">${r.ok ? "PASS" : "FAIL"}</span></td>` +
+              `<td class="k">${r.name}</td><td class="detail">${(r.detail || "").replace(/</g, "&lt;")}</td></tr>`,
+          )
+          .join("");
+        document.getElementById("report").innerHTML =
+          `<table><thead><tr><th>#</th><th>result</th><th>check</th><th>detail</th></tr></thead><tbody>${rows}</tbody></table>`;
+      }
+
+      run().catch((e) => {
+        document.getElementById("report").innerHTML =
+          `<div class="err"><b>UI test run threw:</b><br>${e.message}<br><pre>${e.stack || ""}</pre></div>`;
+        document.getElementById("summary").textContent = "error";
+        window.__uiResults = { error: e.message, partial: results };
+        window.__uiDone = true;
+      });
+    </script>
+  </body>
+</html>

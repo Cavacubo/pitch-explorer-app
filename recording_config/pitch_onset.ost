@@ -1,0 +1,12 @@
+# detect vowel onset and wait 200 ms
+
+rmsSlopeWin = 0.030
+
+n = 4
+
+0 INTENSITY_RISE_HOLD 0.03 0.030 {} # threshold, wait
+2 ELAPSED_TIME 0.200 NaN {} # duration
+3 ELAPSED_TIME 0.200 NaN {} # duration
+4 OST_END NaN NaN {} 
+
+n = 0

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pitch Explorer</title>
+    <style>
+      /*__APP_CSS__*/
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="hwrap">
+        <div class="brand">Pitch Explorer</div>
+        <div class="spacer"></div>
+        <button id="nav-explore" class="active">Explore</button>
+        <button id="nav-group">Group average</button>
+      </div>
+    </header>
+    <main id="app">
+      <div class="muted" style="padding: 40px">Loading embedded data…</div>
+    </main>
+
+    <!-- Embedded data (gzip+base64), injected by export_pitch_explorer.py -->
+    <script id="manifest-b64" type="application/octet-stream">
+      __MANIFEST_B64__
+    </script>
+    <script id="data-b64" type="application/octet-stream">
+      __DATA_B64__
+    </script>
+
+    <!-- Statistics library (jStat) and the engine, inlined by export_pitch_explorer.py -->
+    <script>
+      /*__JSTAT_JS__*/
+    </script>
+    <script>
+      /*__ENGINE_JS__*/
+    </script>
+
+    <script>
+      /*__APP_JS__*/
+    </script>
+  </body>
+</html>

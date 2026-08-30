@@ -1,0 +1,27 @@
+__pycache__/
+*.pyc
+_payload.json
+.DS_Store
+.claude/
+
+# Engine difference vectors, written by tests/test_engine.js for the scipy check
+tests/engine_vectors.json
+
+# Rendered Markdown previews — regenerate with `python make_previews.py`
+*_preview.html
+
+# Meeting recording and transcript: personal conversation, third-party names.
+# Kept locally, never published with the tool.
+meeting notes/
+meeting notes.zip
+
+# Working notes and correspondence drafts, not part of the deliverable
+Changes applied to Opt_B.txt
+email_to_pavo_defence.txt
+
+# Session handover notes: kept local (for the author and the assistant), not published.
+HANDOVER.md
+
+# Project proposal and tool screenshots: kept local, not part of the deliverable.
+project_proposal_approwed/
+project_proposal/

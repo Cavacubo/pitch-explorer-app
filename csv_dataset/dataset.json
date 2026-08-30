@@ -1,0 +1,394 @@
+{
+  "schema": "audapter-pitch-explorer-dataset/v1",
+  "generatedBy": "convert_mat_to_csv.py",
+  "name": "Reflexive pitch compensation (sustained /a/, ±100 c)",
+  "description": "Sustained vowel /a/ with a brief pitch perturbation in auditory feedback. Curves are the produced voice (signalIn), F0 estimated with SWIPE′ and expressed in cents relative to each trial's own pre-perturbation baseline.",
+  "epoch": {
+    "tPreMs": 500.0,
+    "tPostMs": 1000.0,
+    "dtMs": 2.0,
+    "nSamples": 751,
+    "baselineMs": [
+      -200,
+      0
+    ]
+  },
+  "units": {
+    "curves": "cents from baseline",
+    "time": "ms relative to perturbation onset"
+  },
+  "perturbation": {
+    "onsetMs": 0,
+    "durationMs": 200
+  },
+  "conditions": [
+    {
+      "id": "control",
+      "label": "control",
+      "shiftCents": 0,
+      "isControl": true,
+      "color": "#7f7f7f"
+    },
+    {
+      "id": "neg100",
+      "label": "−100 c",
+      "shiftCents": -100,
+      "isControl": false,
+      "color": "#3366d9"
+    },
+    {
+      "id": "pos100",
+      "label": "+100 c",
+      "shiftCents": 100,
+      "isControl": false,
+      "color": "#d9660d"
+    }
+  ],
+  "genders": [
+    "female",
+    "male"
+  ],
+  "f0EstimatorRangeHz": {
+    "female": [
+      150,
+      350
+    ],
+    "male": [
+      75,
+      180
+    ]
+  },
+  "samplingRate": {
+    "processingHz": 24000.0,
+    "note": "Audapter's internal processing rate. The audio interface ran at processingHz x downFactor.",
+    "downFactor": 2,
+    "hardwareHz": 48000.0
+  },
+  "participants": [
+    {
+      "id": "P001",
+      "gender": "female",
+      "nTrials": 216,
+      "counts": {
+        "control": 65,
+        "neg100": 75,
+        "pos100": 76
+      },
+      "curvesFile": "curves/P001.csv"
+    },
+    {
+      "id": "P003",
+      "gender": "male",
+      "nTrials": 215,
+      "counts": {
+        "control": 65,
+        "neg100": 74,
+        "pos100": 76
+      },
+      "curvesFile": "curves/P003.csv"
+    },
+    {
+      "id": "P005",
+      "gender": "female",
+      "nTrials": 216,
+      "counts": {
+        "control": 65,
+        "neg100": 75,
+        "pos100": 76
+      },
+      "curvesFile": "curves/P005.csv"
+    },
+    {
+      "id": "P006",
+      "gender": "male",
+      "nTrials": 227,
+      "counts": {
+        "control": 69,
+        "neg100": 79,
+        "pos100": 79
+      },
+      "curvesFile": "curves/P006.csv"
+    },
+    {
+      "id": "P007",
+      "gender": "male",
+      "nTrials": 225,
+      "counts": {
+        "control": 68,
+        "neg100": 78,
+        "pos100": 79
+      },
+      "curvesFile": "curves/P007.csv"
+    },
+    {
+      "id": "P008",
+      "gender": "male",
+      "nTrials": 220,
+      "counts": {
+        "control": 66,
+        "neg100": 76,
+        "pos100": 78
+      },
+      "curvesFile": "curves/P008.csv"
+    },
+    {
+      "id": "P009",
+      "gender": "female",
+      "nTrials": 220,
+      "counts": {
+        "control": 66,
+        "neg100": 77,
+        "pos100": 77
+      },
+      "curvesFile": "curves/P009.csv"
+    },
+    {
+      "id": "P010",
+      "gender": "female",
+      "nTrials": 218,
+      "counts": {
+        "control": 65,
+        "neg100": 76,
+        "pos100": 77
+      },
+      "curvesFile": "curves/P010.csv"
+    },
+    {
+      "id": "P011",
+      "gender": "male",
+      "nTrials": 236,
+      "counts": {
+        "control": 70,
+        "neg100": 82,
+        "pos100": 84
+      },
+      "curvesFile": "curves/P011.csv"
+    },
+    {
+      "id": "P012",
+      "gender": "female",
+      "nTrials": 221,
+      "counts": {
+        "control": 67,
+        "neg100": 76,
+        "pos100": 78
+      },
+      "curvesFile": "curves/P012.csv"
+    },
+    {
+      "id": "P013",
+      "gender": "female",
+      "nTrials": 216,
+      "counts": {
+        "control": 65,
+        "neg100": 75,
+        "pos100": 76
+      },
+      "curvesFile": "curves/P013.csv"
+    },
+    {
+      "id": "P014",
+      "gender": "female",
+      "nTrials": 212,
+      "counts": {
+        "control": 63,
+        "neg100": 69,
+        "pos100": 80
+      },
+      "curvesFile": "curves/P014.csv"
+    },
+    {
+      "id": "P015",
+      "gender": "female",
+      "nTrials": 216,
+      "counts": {
+        "control": 65,
+        "neg100": 75,
+        "pos100": 76
+      },
+      "curvesFile": "curves/P015.csv"
+    },
+    {
+      "id": "P016",
+      "gender": "male",
+      "nTrials": 216,
+      "counts": {
+        "control": 65,
+        "neg100": 75,
+        "pos100": 76
+      },
+      "curvesFile": "curves/P016.csv"
+    },
+    {
+      "id": "P017",
+      "gender": "male",
+      "nTrials": 220,
+      "counts": {
+        "control": 67,
+        "neg100": 76,
+        "pos100": 77
+      },
+      "curvesFile": "curves/P017.csv"
+    },
+    {
+      "id": "P018",
+      "gender": "female",
+      "nTrials": 216,
+      "counts": {
+        "control": 65,
+        "neg100": 74,
+        "pos100": 77
+      },
+      "curvesFile": "curves/P018.csv"
+    },
+    {
+      "id": "P019",
+      "gender": "female",
+      "nTrials": 216,
+      "counts": {
+        "control": 65,
+        "neg100": 75,
+        "pos100": 76
+      },
+      "curvesFile": "curves/P019.csv"
+    },
+    {
+      "id": "P020",
+      "gender": "female",
+      "nTrials": 217,
+      "counts": {
+        "control": 66,
+        "neg100": 75,
+        "pos100": 76
+      },
+      "curvesFile": "curves/P020.csv"
+    },
+    {
+      "id": "P021",
+      "gender": "male",
+      "nTrials": 193,
+      "counts": {
+        "control": 57,
+        "neg100": 67,
+        "pos100": 69
+      },
+      "curvesFile": "curves/P021.csv"
+    },
+    {
+      "id": "P022",
+      "gender": "male",
+      "nTrials": 216,
+      "counts": {
+        "control": 65,
+        "neg100": 75,
+        "pos100": 76
+      },
+      "curvesFile": "curves/P022.csv"
+    },
+    {
+      "id": "P023",
+      "gender": "female",
+      "nTrials": 214,
+      "counts": {
+        "control": 64,
+        "neg100": 74,
+        "pos100": 76
+      },
+      "curvesFile": "curves/P023.csv"
+    },
+    {
+      "id": "P024",
+      "gender": "male",
+      "nTrials": 220,
+      "counts": {
+        "control": 65,
+        "neg100": 77,
+        "pos100": 78
+      },
+      "curvesFile": "curves/P024.csv"
+    },
+    {
+      "id": "P025",
+      "gender": "female",
+      "nTrials": 216,
+      "counts": {
+        "control": 65,
+        "neg100": 75,
+        "pos100": 76
+      },
+      "curvesFile": "curves/P025.csv"
+    },
+    {
+      "id": "P026",
+      "gender": "male",
+      "nTrials": 214,
+      "counts": {
+        "control": 65,
+        "neg100": 75,
+        "pos100": 74
+      },
+      "curvesFile": "curves/P026.csv"
+    },
+    {
+      "id": "P027",
+      "gender": "female",
+      "nTrials": 171,
+      "counts": {
+        "control": 52,
+        "neg100": 58,
+        "pos100": 61
+      },
+      "curvesFile": "curves/P027.csv"
+    },
+    {
+      "id": "P028",
+      "gender": "female",
+      "nTrials": 218,
+      "counts": {
+        "control": 66,
+        "neg100": 75,
+        "pos100": 77
+      },
+      "curvesFile": "curves/P028.csv"
+    },
+    {
+      "id": "P029",
+      "gender": "male",
+      "nTrials": 213,
+      "counts": {
+        "control": 65,
+        "neg100": 73,
+        "pos100": 75
+      },
+      "curvesFile": "curves/P029.csv"
+    },
+    {
+      "id": "P030",
+      "gender": "female",
+      "nTrials": 217,
+      "counts": {
+        "control": 65,
+        "neg100": 75,
+        "pos100": 77
+      },
+      "curvesFile": "curves/P030.csv"
+    }
+  ],
+  "totals": {
+    "nParticipants": 28,
+    "nTrials": 6035,
+    "nByCondition": {
+      "control": 1816,
+      "neg100": 2086,
+      "pos100": 2133
+    },
+    "nByGender": {
+      "female": 16,
+      "male": 12
+    }
+  },
+  "files": {
+    "trials": "trials.csv",
+    "curvesDir": "curves"
+  }
+}
